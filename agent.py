@@ -1,6 +1,6 @@
 from azure.iot.device import IoTHubDeviceClient, Message
 import json
-
+import asyncio
 class Agent:
   def __init__(self, device, connection_string):
     self.device = device
@@ -23,3 +23,14 @@ class Agent:
 
     self.client.send_message(message)
 
+
+  async def patchTwinReportedProps(self):
+    self.client.patch_twin_reported_properties({'WorkorderId': await (await self.device.get_child('WorkorderId')).read_value()})
+    self.client.patch_twin_reported_properties({'DeviceError': await (await self.device.get_child('DeviceError')).read_value()})
+  
+  async def createTasks(self):
+    tasks = []
+    tasks.append(asyncio.create_task(self.patchTwinReportedProps()))
+    tasks.append(asyncio.create_task(self.send()))
+
+    return tasks
