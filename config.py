@@ -15,7 +15,7 @@ class Config:
         with open('./config.ini', 'w') as f:
           self.config.write(f)
     else:
-      if self.config.has_option(section, key):
+      if self.config.has_option(key, section):
         value = self.config[key][section]
       else:
         value = str(input(f"Provide {section} for {key}: "))
