@@ -1,12 +1,15 @@
 from azure.iot.device import IoTHubDeviceClient, Message
 import json
 import asyncio
+from asyncua import ua
 class Agent:
   def __init__(self, device, connection_string):
     self.device = device
     self.connection_string = connection_string
     self.client = IoTHubDeviceClient.create_from_connection_string(self.connection_string)
     self.client.connect()
+    self.client.on_twin_desired_properties_patch_received = self.patchProductionRate
+    self.tasks = []
 
   async def send(self):
     telemetry = {
@@ -29,8 +32,18 @@ class Agent:
     self.client.patch_twin_reported_properties({'DeviceError': await (await self.device.get_child('DeviceError')).read_value()})
   
   async def createTasks(self):
-    tasks = []
+    tasks = [asyncio.create_task(task) for task in self.tasks]
     tasks.append(asyncio.create_task(self.patchTwinReportedProps()))
     tasks.append(asyncio.create_task(self.send()))
-
+    self.tasks = []
     return tasks
+
+  def patchProductionRate(self, patch):
+    if "ProductionRate" in patch:
+      print("Patched ProductionRate to: " + str(patch['ProductionRate']))
+      self.tasks.append(
+        self.setProps(ua.Variant(patch['ProductionRate'], ua.VariantType.Int32))
+      )
+
+  async def setProps(self, value):
+    await (await self.device.get_child('ProductionRate')).write_value(value)

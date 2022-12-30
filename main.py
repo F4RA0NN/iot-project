@@ -36,6 +36,8 @@ async def main():
   except Exception as e:
     if isinstance(e, BadLicenseExpired):
       print("License expired! ;)")
+    else:
+      print(e)
   
 
 if __name__ == "__main__":
