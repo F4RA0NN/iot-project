@@ -1,7 +1,8 @@
-from azure.iot.device import IoTHubDeviceClient, Message
+from azure.iot.device import IoTHubDeviceClient, Message, MethodResponse
 import json
 import asyncio
 from asyncua import ua
+import datetime
 class Agent:
   def __init__(self, device, connection_string):
     self.device = device
@@ -9,6 +10,8 @@ class Agent:
     self.client = IoTHubDeviceClient.create_from_connection_string(self.connection_string)
     self.client.connect()
     self.client.on_twin_desired_properties_patch_received = self.patchProductionRate
+    self.client.on_method_request_received = self.receiveMethod
+    
     self.tasks = []
 
   async def send(self):
@@ -47,3 +50,23 @@ class Agent:
 
   async def setProps(self, value):
     await (await self.device.get_child('ProductionRate')).write_value(value)
+
+  def receiveMethod(self, method_request):
+
+    if method_request.name == "MaintenanceDone":
+      print("Adding MaintenanceDoneDate to twin reported properties")
+      self.client.patch_twin_reported_properties({'MaintenanceDoneDate': datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")})
+
+    if method_request.name == "Reset":
+      print("Resetting device")
+      self.tasks.append(
+        self.device.call_method("ResetErrorStatus")
+      )
+
+    if method_request.name == "Stop":
+      print("Stopping device")
+      self.tasks.append(
+        self.device.call_method("EmergencyStop")
+      )
+
+    self.client.send_method_response(MethodResponse(method_request.request_id, 0))
